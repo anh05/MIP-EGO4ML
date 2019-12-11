@@ -3,7 +3,7 @@ from setuptools import setup
 setup(
     name='mipego4ml',
     version='0.1',
-    packages=['mipego', 'mipego.optimizer', 'mipego4ml'],
+    packages=['mipego4ml', 'mipego4ml.mipego', 'mipego4ml.mipego.optimizer'],
     url='hyperparameter.ml',
     license='',
     author='Duc Anh Nguyen, Hao Wang, Thomas Back',
