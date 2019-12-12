@@ -1,5 +1,5 @@
 from collections import OrderedDict
-from math import log, ceil
+from math import log, ceil, floor
 
 import numpy as np
 
@@ -83,12 +83,12 @@ class mipego4ML(object):
             self._lsincumbent[sp_id] = incumbent
             self._lsCurrentBest[sp_id] = min(self.opt[sp_id].eval_hist)
             # lsRunning[sp_id] = [incumbent,model,stop_dict, opt[sp_id]]
-        remain_eval = self.max_eval - self.eval_count
-        remain_iter = self.max_iter - self.iter_count
+        max_eval = self.max_eval - self.eval_count
+        max_iter = self.max_iter - self.iter_count
         lsRace = self.calculateSH()
         num_races = len(lsRace)
-        eval_race = remain_eval / num_races
-        iter_race = remain_iter / num_races
+        eval_race = max_eval / num_races
+        iter_race = max_iter / num_races
         best_incumbent = ""
         best_value = 0.000000
         for iround, num_candidate in lsRace.items():
@@ -100,9 +100,14 @@ class mipego4ML(object):
                 lsThisRound = list(OrderedDict(sorted(self._lsCurrentBest.items(), key=lambda item: item[1],
                                                       reverse=True)).items())[:num_candidate]
             for cdid, bestloss in lsThisRound:
-                num_candidate = len(self.opt)
-                cd_add_eval = int(ceil(eval_race / num_candidate))
-                cd_add_iter = int(ceil(iter_race / num_candidate))
+                cd_add_eval = int(floor(eval_race / num_candidate))
+                cd_add_iter = int(floor(iter_race / num_candidate))
+                if (num_candidate<=1):
+                    remain_eval = self.max_eval - self.eval_count
+                    remain_iter = self.max_iter - self.iter_count
+                    cd_add_eval = max(cd_add_eval,remain_eval)
+                    cd_add_iter = max(cd_add_iter,remain_iter)
+
                 # lc_N_value_count= [len(sp.le)]
                 print("previous best loss was:", bestloss, "of", cdid)
                 # cdvalue
@@ -111,10 +116,13 @@ class mipego4ML(object):
                 self.opt[cdid].max_eval += cd_add_eval
                 self.opt[cdid].stop_dict.clear()
                 incumbent, stop_dict = self.opt[cdid].run()
-                self._lsincumbent[sp_id] = incumbent
+                #update infor
+                self.iter_count += cd_add_iter
+                self.eval_count += cd_add_eval
+                self._lsincumbent[cdid] = incumbent
                 best_incumbent = incumbent
-                self._lsCurrentBest[sp_id] = min(self.opt[sp_id].eval_hist)
-                best_value = self.opt[sp_id].eval_hist[self.opt[sp_id].incumbent_id]
+                self._lsCurrentBest[cdid] = min(self.opt[cdid].eval_hist)
+                best_value = self.opt[cdid].eval_hist[self.opt[cdid].incumbent_id]
                 # lsRunning[cdid] = [incumbent, model, stop_dict, opt1]
         return best_incumbent, best_value
 
