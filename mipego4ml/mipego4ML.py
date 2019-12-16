@@ -96,6 +96,7 @@ class mipego4ML(object):
             if (self.minimize == True):
                 lsThisRound = list(OrderedDict(sorted(self._lsCurrentBest.items(), key=lambda item: item[1])).items())[
                               :num_candidate]
+                #self._lsCurrentBest=OrderedDict(lsThisRound)
             else:
                 lsThisRound = list(OrderedDict(sorted(self._lsCurrentBest.items(), key=lambda item: item[1],
                                                       reverse=True)).items())[:num_candidate]
@@ -112,8 +113,8 @@ class mipego4ML(object):
                 print("previous best loss was:", bestloss, "of", cdid)
                 # cdvalue
                 self.opt[cdid].n_init_sample = 0
-                self.opt[cdid].max_iter += cd_add_iter
-                self.opt[cdid].max_eval += cd_add_eval
+                self.opt[cdid].max_iter = max(self.opt[cdid].max_iter,self.opt[cdid].iter_count) + cd_add_iter
+                self.opt[cdid].max_eval = max(self.opt[cdid].max_eval,self.opt[cdid].eval_count) + cd_add_eval
                 self.opt[cdid].stop_dict.clear()
                 incumbent, stop_dict = self.opt[cdid].run()
                 #update infor
@@ -121,8 +122,11 @@ class mipego4ML(object):
                 self.eval_count += cd_add_eval
                 self._lsincumbent[cdid] = incumbent
                 best_incumbent = incumbent
-                self._lsCurrentBest[cdid] = min(self.opt[cdid].eval_hist)
                 best_value = self.opt[cdid].eval_hist[self.opt[cdid].incumbent_id]
+                self._lsCurrentBest[cdid] = best_value
+                #self._lsCurrentBest[cdid] = np.mean(self.opt[cdid].eval_hist)
+                #self._lsCurrentBest[cdid] = np.mean(self.opt[cdid].eval_hist[-cd_add_iter:])
+
                 # lsRunning[cdid] = [incumbent, model, stop_dict, opt1]
         return best_incumbent, best_value
 

@@ -132,7 +132,6 @@ class ConfigSpace(object):
                     FinalSP[name] = item
                     if 'space' not in locals():
                         space = item
-                        # dang lam do
                     else:
                         space = space * item
             #       searchSpace.pop(name)
