@@ -16,7 +16,7 @@ import numpy as np
 #import mipego4ml.ConditionalSpace
 from mipego4ml.ConditionalSpace import ConditionalSpace
 # from .mipego.SearchSpace import ContinuousSpace, NominalSpace, OrdinalSpace, SearchSpace
-from mipego.SearchSpace import ContinuousSpace, NominalSpace, OrdinalSpace, SearchSpace
+from .mipego.SearchSpace import ContinuousSpace, NominalSpace, OrdinalSpace, SearchSpace
 
 
 class ConfigSpace(object):
