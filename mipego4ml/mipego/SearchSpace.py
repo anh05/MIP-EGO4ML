@@ -204,6 +204,9 @@ class OrdinalSpace(SearchSpace):
     def __rmul__(self, N):
         return self.__mul__(N)
 
+    def rebuild(self):
+        pass
+
     def sampling(self, N=1, method='uniform'):
         res = np.zeros((N, self.dim), dtype=int)
         for i in range(self.dim):
