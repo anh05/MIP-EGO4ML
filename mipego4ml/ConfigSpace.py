@@ -11,7 +11,7 @@ from abc import abstractmethod
 from pyDOE import lhs
 import copy
 from itertools import chain
-
+import itertools
 import numpy as np
 #import mipego4ml.ConditionalSpace
 from mipego4ml.ConditionalSpace import ConditionalSpace
@@ -130,7 +130,8 @@ class ConfigSpace(object):
 
     def listoutAllBranches(self, lsvarname, childeffect, lsparentname, con: ConditionalSpace) -> List[
         SearchSpace]:
-        hp = copy.deepcopy(self._hyperparameters)
+        #hp = copy.deepcopy(self._hyperparameters)
+        hp=self._hyperparameters
         hpi = []
         returnList = []
         childList = [x[1] for x in childeffect]
@@ -138,7 +139,7 @@ class ConfigSpace(object):
         hpb_name = [x for x in hp if x not in (lsvarname + childList)]
         norelationLst=[]
         for i in hpb_name:
-            norelationLst.append(hp[i])
+            norelationLst.append([[hp[i]]])
         #norelationLst = []
         #if (len(hpb) > 0):
          #   for i in hpb:
@@ -153,28 +154,30 @@ class ConfigSpace(object):
                 hpi = []
                 hpi = self._listoutsinglebraches(newi, newi[0], hpi, returnList, lsvarname, childeffect, lsparentname,
                                             con)
-        child_hpa = child_hpas[0]
+
         count = 1
         final = []
-        temp1Lst = []
-        temp2Lst = []
-        for i1 in returnList:
-            in1Lst = False
-            for i2 in i1:
-                # i2=SearchSpace(i2)
-                if (i2.var_name[0] == child_hpa):
-                    in1Lst = True
-            if (in1Lst == True):
-                temp1Lst.append(i1)
-            else:
-                temp2Lst.append(i1)
+        MixList=[]
+        for child_hpa in child_hpas:
+            tempList=[]
+            for i1 in returnList:
+                in1Lst = False
+                for i2 in i1:
+                    # i2=SearchSpace(i2)
+                    if (i2.var_name[0] == child_hpa):
+                        in1Lst = True
+                if (in1Lst == True):
+                    tempList.append(i1)
+            MixList.append(tempList)
+        MixList=MixList+norelationLst
+        #MixList
+        if(len(MixList)>1):
+            final=list(itertools.product(*MixList))
+        elif(len(MixList)==1):
+            final=MixList[0]
+        else:
+            pass
 
-        for i1 in temp1Lst:
-            # print('Firts',i)
-            for i in temp2Lst:
-                # print(count,i1, i)
-                final.append(i1 + i + norelationLst)
-                count = count + 1
         return final
 
     def combinewithconditional(self, cons: ConditionalSpace, ifAllSolution=True) -> List[SearchSpace]:
@@ -225,15 +228,16 @@ class ConfigSpace(object):
         lsSearchSpace = self.listoutAllBranches(lsVarName, lsChildEffect, lsParentName, cons)
         for searchSpace in lsSearchSpace:
             FinalSP= OrderedDict()
-            for item in searchSpace:
-                if (item.iskeep==True):
-                    FinalSP[item.var_name[0]]= item
-                    if 'space' not in locals():
-                        space=item
-                        #dang lam do
-                    else:
-                        space= space*item
-             #       searchSpace.pop(name)
+            for group in searchSpace:
+                for item in group:
+                    if (item.iskeep==True):
+                        FinalSP[item.var_name[0]]= item
+                        if 'space' not in locals():
+                            space=item
+                            #dang lam do
+                        else:
+                            space= space*item
+                 #       searchSpace.pop(name)
             lsFinalSP.append(space)
             del space
         return lsFinalSP
@@ -243,13 +247,17 @@ if __name__ == '__main__':
     cs = ConfigSpace()
 
     con = ConditionalSpace("test")
-    dataset = NominalSpace(['anh'], "dataset")
-    missingvalue = NominalSpace(["imputer", "fillna"], "missingvalue")
-    strategy = NominalSpace(["mean", "median", "most_frequent", "constant"], "strategy")
-    lv3 = NominalSpace([1, 2], "lv3")
-    cs.add_multiparameter([dataset, missingvalue, strategy, lv3])
-    con.addConditional(strategy, missingvalue, ["imputer"])
-    con.addConditional(lv3, strategy, ["mean"])
+
+    dataset = NominalSpace(["anh"], "dataset")
+    alg_name = NominalSpace(['SVM', 'LinearSVC', 'RF', 'DTC', 'KNN', 'Quadratic'], 'alg_name')
+    # dataset = NominalSpace( [datasetStr],"dataset")
+    cs.add_multiparameter([dataset, alg_name])
+    ##module1
+    ####Missingvalue
+    missingvalue = NominalSpace(['imputer', 'fillna'], 'missingvalue')
+    strategy = NominalSpace(["mean", "median", "most_frequent", "constant"], 'strategy')
+    cs.add_multiparameter([missingvalue, strategy])
+    con.addConditional(strategy, missingvalue, ['imputer'])
     ####ENCODER
     encoder = NominalSpace(['OneHotEncoder', 'dummies'], 'encoder')
     OneHotEncoder_isUse = NominalSpace([True, False], 'isUse')
@@ -258,6 +266,122 @@ if __name__ == '__main__':
     cs.add_multiparameter([encoder, OneHotEncoder_isUse, dummy_na, drop_first])
     con.addConditional(OneHotEncoder_isUse, encoder, ['OneHotEncoder'])
     con.addMutilConditional([dummy_na, drop_first], encoder, ['dummies'])
+    ###ReScaling
+    rescaling = NominalSpace(['MinMaxScaler', 'StandardScaler', 'RobustScaler'], 'rescaling')
+    ####IMBALANCED
+    random_state = NominalSpace([27], 'random_state')
+    imbalance = NominalSpace(['NONE', 'SMOTE', 'SMOTENC', 'SMOTETomek', 'SMOTEENN', ], 'imbalance')
+    sampling_strategy_SMOTE = NominalSpace(['minority', 'not minority', 'not majority', 'all'],
+                                           'sampling_strategy_SMOTE')
+    k_neighbors_SMOTE = OrdinalSpace([3, 20], 'k_neighbors_SMOTE')
+    categorical_features = NominalSpace([True], 'categorical_features')
+    sampling_strategy_SMOTENC = NominalSpace(['minority', 'not minority', 'not majority', 'all'],
+                                             'sampling_strategy_SMOTENC')
+    k_neighbors_SMOTENC = OrdinalSpace([3, 20], 'k_neighbors_SMOTENC')
+
+    sampling_strategy2 = NominalSpace(['minority', 'not minority', 'not majority', 'all'],
+                                      'sampling_strategy_SMOTETomek')
+
+    sampling_strategy1 = NominalSpace(['minority', 'not minority', 'not majority', 'all'], 'sampling_strategy_SMOTEENN')
+    cs.add_multiparameter(
+        [rescaling, random_state, imbalance, sampling_strategy_SMOTE, k_neighbors_SMOTE, categorical_features,
+         sampling_strategy_SMOTENC, k_neighbors_SMOTENC, sampling_strategy2, sampling_strategy1])
+    con.addMutilConditional([random_state, sampling_strategy_SMOTE, k_neighbors_SMOTE], imbalance, ['SMOTE'])
+    con.addMutilConditional([random_state, categorical_features, sampling_strategy_SMOTENC, k_neighbors_SMOTENC],
+                            imbalance, ['SMOTENC'])
+    con.addConditional(sampling_strategy2, imbalance, ['SMOTETomek'])
+    con.addConditional(sampling_strategy1, imbalance, ['SMOTEENN'])
+    # Module 2
+    FeaturePrepocessing = NominalSpace(['None', 'FastICA', 'PCA', 'SelectPercentile'], 'FeaturePrepocessing')
+    ##FastICA
+    n_components = OrdinalSpace([2, 50], 'n_components')
+    algorithm_FastICA = NominalSpace(['parallel', 'deflation'], 'algorithm_FastICA')
+    whiten = NominalSpace([True, False], 'whiten')
+    fun = NominalSpace(['logcosh', 'exp', 'cube'], 'fun')
+    tol_FastICA = ContinuousSpace([0.0, 1], 'tol_FastICA')
+    cs.add_multiparameter([FeaturePrepocessing, n_components, algorithm_FastICA, whiten, fun, tol_FastICA])
+    con.addMutilConditional([n_components, algorithm_FastICA, whiten, fun, tol_FastICA], FeaturePrepocessing,
+                            ['FastICA'])
+    ##PCA
+    # n_components = OrdinalSpace([2, 50],'n_components')
+    svd_solver = NominalSpace(['auto', 'full', 'arpack', 'randomized'], 'svd_solver')
+    copy = NominalSpace([True, False], 'copy')
+    whiten_PCA = NominalSpace([True, False], 'whiten_PCA')
+    iterated_power = OrdinalSpace([1, 50], 'iterated_power')
+    tol_PCA = ContinuousSpace([0.0, 1], 'tol_PCA')
+    cs.add_multiparameter([svd_solver, copy, whiten_PCA, iterated_power, tol_PCA])
+    con.addMutilConditional([svd_solver, copy, whiten_PCA, iterated_power, tol_PCA], FeaturePrepocessing, ['PCA'])
+    ##SelectPercentile
+    score_func = NominalSpace(['f_classif', 'f_regression', 'mutual_info_classif'], 'score_func')
+    percentile = OrdinalSpace([0, 100], 'percentile')
+    cs.add_multiparameter([score_func, percentile])
+    con.addMutilConditional([score_func, percentile], FeaturePrepocessing, ['SelectPercentile'])
+    # MODULE3
+    # SVM
+    probability = NominalSpace(['True', 'False'], 'probability')
+    C = ContinuousSpace([1e-2, 100], 'C')
+    kernel = NominalSpace(["linear", "rbf", "poly", "sigmoid"], 'kernel')
+    coef0 = ContinuousSpace([0.0, 10.0], 'coef0')
+    degree = OrdinalSpace([1, 5], 'degree')
+    shrinking = NominalSpace(['True', 'False'], "shrinking")
+    gamma = NominalSpace(['auto', 'value'], "gamma")
+    gamma_value = ContinuousSpace([1e-2, 100], 'gamma_value')
+    cs.add_multiparameter([probability, C, kernel, coef0, degree, shrinking, gamma, gamma_value])
+    con.addMutilConditional([probability, C, kernel, coef0, degree, shrinking, gamma, gamma_value], alg_name, ['SVM'])
+    # 'name': 'LinearSVC',
+    penalty = NominalSpace(["l1", "l2"], 'penalty')
+    # "loss" : hp.choice('loss',["hinge","squared_hinge"]),
+    dual = NominalSpace([False], 'dual')
+    tol = ContinuousSpace([0.0, 1], 'tol')
+    multi_class = NominalSpace(['ovr', 'crammer_singer'], 'multi_class')
+    fit_intercept = NominalSpace([False], 'fit_intercept')
+    C_Lin = ContinuousSpace([1e-2, 100], 'C_Lin')
+    cs.add_multiparameter([penalty, dual, tol, multi_class, fit_intercept, C_Lin])
+    con.addMutilConditional([penalty, dual, tol, multi_class, fit_intercept, C_Lin], alg_name, ['LinearSVC'])
+    # elif (alg_nameStr == "RF"):
+    n_estimators = OrdinalSpace([5, 2000], "n_estimators")
+    criterion = NominalSpace(["gini", "entropy"], "criterion")
+    max_depth = OrdinalSpace([10, 200], "max_depth")
+    max_features = NominalSpace(['auto', 'sqrt', 'log2', 'None'], "max_features")
+    min_samples_split = OrdinalSpace([2, 200], "min_samples_split")
+    min_samples_leaf = OrdinalSpace([2, 200], "min_samples_leaf")
+    bootstrap = NominalSpace([True, False], "bootstrap")
+    class_weight = NominalSpace(['balanced', 'None'], "class_weight")
+    cs.add_multiparameter(
+        [n_estimators, criterion, max_depth, max_features, min_samples_leaf, min_samples_split, bootstrap,
+         class_weight])
+    con.addMutilConditional([n_estimators, criterion, max_depth, max_features, min_samples_leaf, min_samples_split,
+                             bootstrap, class_weight], alg_name, ['RF'])
+    # 'name': 'DTC',
+    splitter = NominalSpace(['best', 'random'], "splitter")
+    criterion_dtc = NominalSpace(["gini", "entropy"], 'criterion_dtc')
+    max_depth_dtc = OrdinalSpace([10, 200], 'max_depth_dtc')
+    max_features_dtc = NominalSpace(['auto', 'sqrt', 'log2', 'None'], 'max_features_dtc')
+    min_samples_split_dtc = OrdinalSpace([2, 200], 'min_samples_split_dtc')
+    min_samples_leaf_dtc = OrdinalSpace([2, 200], 'min_samples_leaf_dtc')
+    class_weight_dtc = NominalSpace(['balanced', 'None'], "class_weight_dtc", )
+    # ccp_alpha = ContinuousSpace([0.0, 1.0],'ccp_alpha')
+    cs.add_multiparameter([splitter, criterion_dtc, max_depth_dtc, max_features_dtc, min_samples_split_dtc,
+                           min_samples_leaf_dtc, class_weight_dtc])
+    con.addMutilConditional([splitter, criterion_dtc, max_depth_dtc, max_features_dtc, min_samples_split_dtc,
+                             min_samples_leaf_dtc, class_weight_dtc], alg_name, ['DTC'])
+    # elif (alg_nameStr == 'KNN'):
+    n_neighbors = OrdinalSpace([5, 200], "n_neighbors")
+    weights = NominalSpace(["uniform", "distance"], "weights")
+    algorithm = NominalSpace(['auto', 'ball_tree', 'kd_tree', 'brute'], "algorithm")
+    leaf_size = OrdinalSpace([1, 200], "leaf_size")
+    p = OrdinalSpace([1, 200], "p")
+    metric = NominalSpace(['euclidean', 'manhattan', 'chebyshev', 'minkowski'], "metric")
+    # p_sub_type = name
+    cs.add_multiparameter([n_neighbors, weights, algorithm, leaf_size, p, metric])
+    con.addMutilConditional([n_neighbors, weights, algorithm, leaf_size, p, metric], alg_name, ['KNN'])
+
+    # 'name': 'Quadratic',
+    reg_param = ContinuousSpace([1e-2, 1], 'reg_param')
+    store_covariance = NominalSpace(['True', 'False'], 'store_covariance')
+    tol_qua = ContinuousSpace([0.0, 1], 'tol_qua')
+    cs.add_multiparameter([reg_param, store_covariance, tol_qua])
+    con.addMutilConditional([reg_param, store_covariance, tol_qua], alg_name, ['Quadratic'])
     lsSpace = cs.combinewithconditional(con, ifAllSolution=True)
 
     # lsSpace = cs.combinewithconditional(con)
